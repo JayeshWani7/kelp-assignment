@@ -69,11 +69,35 @@ export class CsvParser {
       return null;
     }
 
-    const nestedObj = this.buildNestedObject(headers, values);
+    let firstName = '';
+    let lastName = '';
+    let ageValue = '';
+    const address: any = {};
+    const additionalInfo: any = {};
     
-    const firstName = nestedObj.name?.firstName || '';
-    const lastName = nestedObj.name?.lastName || '';
-    const ageValue = nestedObj.age;
+    // Single pass through headers/values - O(n) instead of O(n²)
+    for (let i = 0; i < headers.length; i++) {
+      const header = headers[i];
+      const value = values[i];
+      
+      if (!header || !value) continue;
+      
+      // Direct field mapping without nested object creation
+      if (header === 'name.firstName') {
+        firstName = value;
+      } else if (header === 'name.lastName') {
+        lastName = value;
+      } else if (header === 'age') {
+        ageValue = value;
+      } else if (header.startsWith('address.')) {
+        const addressKey = header.substring(8); // Remove 'address.'
+        const keys = addressKey.split('.');
+        this.setNestedValue(address, keys, value);
+      } else {
+        const keys = header.split('.');
+        this.setNestedValue(additionalInfo, keys, value);
+      }
+    }
     
     if (!firstName && !lastName) {
       return null;
@@ -85,54 +109,22 @@ export class CsvParser {
     }
     
     const name = `${firstName} ${lastName}`.trim();
-    const address = nestedObj.address && this.hasValidData(nestedObj.address) 
-      ? nestedObj.address 
-      : null;
     
-    const additionalInfo: any = {};
-    for (const key in nestedObj) {
-      if (key !== 'name' && key !== 'age' && key !== 'address') {
-        if (this.hasValidData(nestedObj[key])) {
-          additionalInfo[key] = nestedObj[key];
-        }
-      }
-    }
-
     return {
       name,
       age,
-      address: address || undefined,
+      address: Object.keys(address).length > 0 ? address : undefined,
       additionalInfo: Object.keys(additionalInfo).length > 0 ? additionalInfo : undefined,
     };
   }
 
-  private buildNestedObject(headers: string[], values: string[]): any {
-    const result: any = {};
-
-    for (let i = 0; i < headers.length; i++) {
-      const header = headers[i];
-      const value = values[i];
-      
-      if (!header) continue;
-
-      const keys = header.split('.');
-      let current = result;
-
-      for (let j = 0; j < keys.length; j++) {
-        const key = keys[j].trim();
-        
-        if (j === keys.length - 1) {
-          current[key] = value;
-        } else {
-          if (!current[key] || typeof current[key] !== 'object') {
-            current[key] = {};
-          }
-          current = current[key];
-        }
-      }
+  private setNestedValue(obj: any, keys: string[], value: string): void {
+    let current = obj;
+    for (let i = 0; i < keys.length - 1; i++) {
+      const key = keys[i].trim();
+      current = current[key] ??= {};
     }
-
-    return result;
+    current[keys[keys.length - 1].trim()] = value;
   }
 
   private hasValidData(obj: any): boolean {
