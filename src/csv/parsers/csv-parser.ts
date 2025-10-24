@@ -74,15 +74,13 @@ export class CsvParser {
     let ageValue = '';
     const address: any = {};
     const additionalInfo: any = {};
-    
-    // Single pass through headers/values - O(n) instead of O(n²)
+    // Single pass through headers: O(n)
     for (let i = 0; i < headers.length; i++) {
       const header = headers[i];
       const value = values[i];
       
       if (!header || !value) continue;
       
-      // Direct field mapping without nested object creation
       if (header === 'name.firstName') {
         firstName = value;
       } else if (header === 'name.lastName') {
@@ -90,7 +88,7 @@ export class CsvParser {
       } else if (header === 'age') {
         ageValue = value;
       } else if (header.startsWith('address.')) {
-        const addressKey = header.substring(8); // Remove 'address.'
+        const addressKey = header.substring(8); 
         const keys = addressKey.split('.');
         this.setNestedValue(address, keys, value);
       } else {
